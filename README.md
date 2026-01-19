@@ -1,4 +1,4 @@
-# 🚀 AWS VPC Network Creation using Terraform
+# 🚀 AWS VPC Network Creation with EC2 Instane using Terraform
 
 This project demonstrates how to **create a complete AWS VPC networking setup using Terraform (Infrastructure as Code)**.  
 It automates the provisioning of AWS networking components in a **reliable, repeatable, and scalable** way.
