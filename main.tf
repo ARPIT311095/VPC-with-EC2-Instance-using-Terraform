@@ -11,7 +11,7 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Create VPC
+# ---------------- VPC ----------------
 resource "aws_vpc" "my_vpc" {
   cidr_block = "10.0.0.0/16"
 
@@ -20,17 +20,17 @@ resource "aws_vpc" "my_vpc" {
   }
 }
 
-# Public Subnet
+# ---------------- Subnets ----------------
 resource "aws_subnet" "public_subnet" {
-  vpc_id     = aws_vpc.my_vpc.id
-  cidr_block = "10.0.1.0/24"
+  vpc_id                  = aws_vpc.my_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  map_public_ip_on_launch = true
 
   tags = {
     Name = "my-public-subnet"
   }
 }
 
-# Private Subnet
 resource "aws_subnet" "private_subnet" {
   vpc_id     = aws_vpc.my_vpc.id
   cidr_block = "10.0.2.0/24"
@@ -40,7 +40,7 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
-# Internet Gateway
+# ---------------- Internet Gateway ----------------
 resource "aws_internet_gateway" "my_ig" {
   vpc_id = aws_vpc.my_vpc.id
 
@@ -49,8 +49,8 @@ resource "aws_internet_gateway" "my_ig" {
   }
 }
 
-# Route Table
-resource "aws_route_table" "my_rt" {
+# ---------------- Public Route Table ----------------
+resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.my_vpc.id
 
   route {
@@ -59,22 +59,61 @@ resource "aws_route_table" "my_rt" {
   }
 
   tags = {
-    Name = "My-Route-Table"
+    Name = "Public-Route-Table"
   }
 }
 
-# Route Table Association
 resource "aws_route_table_association" "public_sub" {
-  route_table_id = aws_route_table.my_rt.id
   subnet_id      = aws_subnet.public_subnet.id
+  route_table_id = aws_route_table.public_rt.id
 }
 
-resource "aws_instance" "mywebserver" {
+# ---------------- NAT Gateway ----------------
+resource "aws_eip" "nat_eip" {
+  domain = "vpc"
 
-  ami = "ami-0ecb62995f68bb549"
-  instance_type = "t3.nano"
-  subnet_id= aws_subnet.public_subnet.id
   tags = {
-    Name= "MyWebServer"
+    Name = "NAT-EIP"
+  }
+}
+
+resource "aws_nat_gateway" "my_nat" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = aws_subnet.public_subnet.id
+
+  tags = {
+    Name = "My-NAT-Gateway"
+  }
+
+  depends_on = [aws_internet_gateway.my_ig]
+}
+
+# ---------------- Private Route Table ----------------
+resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.my_vpc.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.my_nat.id
+  }
+
+  tags = {
+    Name = "Private-Route-Table"
+  }
+}
+
+resource "aws_route_table_association" "private_sub" {
+  subnet_id      = aws_subnet.private_subnet.id
+  route_table_id = aws_route_table.private_rt.id
+}
+
+# ---------------- EC2 Instance ----------------
+resource "aws_instance" "mywebserver" {
+  ami           = "ami-0ecb62995f68bb549"
+  instance_type = "t3.nano"
+  subnet_id     = aws_subnet.public_subnet.id
+
+  tags = {
+    Name = "MyWebServer"
   }
 }
